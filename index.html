@@ -50,7 +50,7 @@
 <body>
 <div class="wrap">
   <h1>📦 自动排柜工具</h1>
-  <div class="sub">上传一批 PO 明细的 Excel → 自动排柜（不同客户/船期分开）→ 原表加一列「排柜方案」可导出。仓库专用，纯本地运行、免安装、可离线。</div>
+  <div class="sub">上传一批 PO 明细的 Excel → 自动排柜（不同客户/船期分开）→ 原表加一列「排柜方案」可导出。</div>
 
   <!-- 1 导入 -->
   <div class="card">
@@ -358,7 +358,7 @@ function runPack(){
   // 分组（分仓）
   function dpart(it){ return dateSep==='month'?(it.mo==null?'未知月':it.mo+'月') : dateSep==='date'?(it.dateRaw||'无船期') : ''; }
   function gkey(it){ return (sepCust?it.cust:'')+'##'+dpart(it); }
-  // 命名前缀：日期+船期+客户，例如 20260719船期WMCA
+  // 命名前缀：日期+船期+客户，例如 20260719船期客户A
   function dtoken(it){ if(dateSep==='date') return (it.dateRaw||'').replace(/[^0-9]/g,'')||'无船期'; if(dateSep==='month') return it.mo==null?'未知月':(it.mo+'月'); return ''; }
   function prefix(it){ var dt=dtoken(it); var p=dt?(dt+'船期'):''; if(sepCust&&it.cust)p+=it.cust; return p; }
 
@@ -554,15 +554,15 @@ function copyResult(){
 function loadDemo(){
   document.getElementById('raw').value=
 '客户\t船期\tPO号码\t中文品名\t个数\t箱数\t外箱-毛重kg\t总体积\n'+
-'Tesco\t2026-08-31\tA-001\t柚木砧板\t8560\t535\t16\t20.12\n'+
-'Tesco\t2026-08-31\tA-002\t硅胶刮刀\t10752\t112\t12.96\t6.25\n'+
-'Tesco\t2026-08-31\tA-003\t木勺\t11328\t354\t2.94\t8.76\n'+
-'Tesco\t2026-08-31\tA-004\t相思木碗\t1176\t294\t0.95\t1.66\n'+
-'Tesco\t2026-08-24\tA-010\t竹置物架\t1008\t168\t8.3\t24.25\n'+
-'Tesco\t2026-08-24\tA-011\t竹砧板大\t1560\t260\t7.1\t3.30\n'+
-'Walmart\t2026-08-15\tW-201\t不锈钢锅\t2000\t400\t18\t28.0\n'+
-'Walmart\t2026-08-15\tW-202\t玻璃杯\t3000\t300\t9\t15.5\n'+
-'Walmart\t2026-08-15\tW-203\t餐具套装\t1500\t150\t22\t9.4';
+'客户A\t2026-08-31\tA-001\t砧板\t8560\t535\t16\t20.12\n'+
+'客户A\t2026-08-31\tA-002\t刮刀\t10752\t112\t12.96\t6.25\n'+
+'客户A\t2026-08-31\tA-003\t勺\t11328\t354\t2.94\t8.76\n'+
+'客户A\t2026-08-31\tA-004\t碗\t1176\t294\t0.95\t1.66\n'+
+'客户A\t2026-08-24\tA-010\t置物架\t1008\t168\t8.3\t24.25\n'+
+'客户A\t2026-08-24\tA-011\t砧板大\t1560\t260\t7.1\t3.30\n'+
+'客户B\t2026-08-15\tW-201\t不锈钢锅\t2000\t400\t18\t28.0\n'+
+'客户B\t2026-08-15\tW-202\t玻璃杯\t3000\t300\t9\t15.5\n'+
+'客户B\t2026-08-15\tW-203\t餐具套装\t1500\t150\t22\t9.4';
   parsePaste();
 }
 </script>
