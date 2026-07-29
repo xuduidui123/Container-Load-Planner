@@ -45,12 +45,16 @@
   .drop.hi{border-color:var(--pri);background:#eff5ff;color:var(--pri2)}
   .filebar{font-size:13px;color:#166534;font-weight:600}
   details.alt summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:10px}
+  .privacy{margin-top:14px;background:#f3f4f6;border:1px solid var(--line);border-radius:8px;padding:10px 14px;text-align:center;color:#4b5563;font-size:13px}
+  .foot{text-align:center;color:#9ca3af;font-size:12.5px;margin:20px 0 8px}
+  .foot a{color:#6b7280;text-decoration:none;border-bottom:1px solid #d1d5db}
+  .foot a:hover{color:var(--pri2);border-color:var(--pri)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>📦 自动排柜工具</h1>
-  <div class="sub">上传一批 PO 明细的 Excel → 自动排柜（不同客户/船期分开）→ 原表加一列「排柜方案」可导出。</div>
+  <div class="sub">上传一批 PO 明细的 Excel → 自动排柜（不同客户/船期分开）→ 原表加一列「排柜方案」可导出。仓库专用，纯本地运行、免安装、可离线。</div>
 
   <!-- 1 导入 -->
   <div class="card">
@@ -62,7 +66,7 @@
     <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
     <div id="fileInfo" class="filebar" style="margin-top:8px"></div>
     <details class="alt"><summary>或：直接粘贴表格数据（从 Excel 复制含表头的整块）</summary>
-      <textarea id="raw" style="margin-top:8px" placeholder="客户	船期	PO号码	...	箱数	外箱-毛重kg	总体积"></textarea>
+      <textarea id="raw" style="margin-top:8px" placeholder="客户	船期	PO号码	...	箱数	总毛重kg	总体积"></textarea>
       <div class="row" style="margin-top:8px">
         <button class="btn-lite" onclick="parsePaste()">解析粘贴内容</button>
         <button class="btn-ghost" onclick="loadDemo()">载入示例数据</button>
@@ -73,6 +77,7 @@
       <div class="hint" style="margin-bottom:6px">请核对列的对应关系（工具已自动猜测，<b>PO号 / 体积 / 交期</b> 必填）：</div>
       <div class="map-grid" id="mapGrid"></div>
     </div>
+    <div class="privacy">🔒 文件完全在你的浏览器里处理，不会上传到任何服务器 · Files never leave your browser.</div>
   </div>
 
   <!-- 2 设置 -->
@@ -106,8 +111,8 @@
     <div style="font-weight:600;margin:14px 0 6px">④ 其它规则</div>
     <div class="row">
       <span>重量列口径：</span>
-      <label class="ck"><input type="radio" name="wmode" value="per" checked> 每箱毛重（总重=每箱×箱数）</label>
-      <label class="ck"><input type="radio" name="wmode" value="total"> 整批总重</label>
+      <label class="ck"><input type="radio" name="wmode" value="total" checked> 整批总重（表里已是总毛重）</label>
+      <label class="ck"><input type="radio" name="wmode" value="per"> 每箱毛重（总重=每箱×箱数）</label>
     </div>
     <div class="row" style="margin-top:8px">
       <label class="ck"><input type="checkbox" id="allowSplit"> 允许一个 PO 拆到多个柜（默认不拆）</label>
@@ -139,6 +144,8 @@
       <table id="resTable"></table>
     </div>
   </div>
+
+  <div class="foot">Made with ❤️ · <a href="https://github.com/xuduidui123/container-loading-planner" target="_blank" rel="noopener">GitHub 源码</a> · <a href="https://github.com/xuduidui123/container-loading-planner/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></div>
 </div>
 
 <script>
@@ -358,7 +365,7 @@ function runPack(){
   // 分组（分仓）
   function dpart(it){ return dateSep==='month'?(it.mo==null?'未知月':it.mo+'月') : dateSep==='date'?(it.dateRaw||'无船期') : ''; }
   function gkey(it){ return (sepCust?it.cust:'')+'##'+dpart(it); }
-  // 命名前缀：日期+船期+客户，例如 20260719船期客户A
+  // 命名前缀：日期+船期+客户，例如 20260719船期客户C
   function dtoken(it){ if(dateSep==='date') return (it.dateRaw||'').replace(/[^0-9]/g,'')||'无船期'; if(dateSep==='month') return it.mo==null?'未知月':(it.mo+'月'); return ''; }
   function prefix(it){ var dt=dtoken(it); var p=dt?(dt+'船期'):''; if(sepCust&&it.cust)p+=it.cust; return p; }
 
@@ -417,18 +424,26 @@ function bestType(vol,wt,allowed){
 function packWhole(list,allowed,warnings,pre){
   var big=allowed.slice().sort(function(a,b){return expVolOf(b)-expVolOf(a);})[0];
   var capV=expVolOf(big), capW=big.maxKg;
-  var sorted=list.slice().sort(function(a,b){return b.vol-a.vol;});
+  // 先按 PO 号码列的值把同一 PO 的多行合并成一个整体单元：不拆分时同一 PO 不会被分到不同柜
+  var poMap={}, poOrder=[];
+  list.forEach(function(it){
+    var key=(''+it.po).trim();
+    if(!poMap[key]){ poMap[key]={po:it.po,vol:0,wt:0,items:[]}; poOrder.push(key); }
+    var g=poMap[key]; g.vol+=it.vol; g.wt+=it.wt; g.items.push(it);
+  });
+  var units=poOrder.map(function(k){return poMap[k];});
+  var sorted=units.slice().sort(function(a,b){return b.vol-a.vol;});
   var bins=[];
-  sorted.forEach(function(it){
-    if(it.vol>capV+1e-6 || it.wt>capW+1e-6){
-      warnings.push('⚠ '+pre+' PO「'+it.po+'」体积 '+round(it.vol)+'CBM / 重量 '+round(it.wt)+'kg 超过单个最大柜（'+big.name+' '+capV+'CBM / '+capW+'kg）。已单独占一柜，建议开启「允许拆分」或人工处理。');
-      bins.push({usedVol:it.vol,usedWt:it.wt,items:[{it:it,boxes:it.box}],over:true}); return;
+  sorted.forEach(function(u){
+    if(u.vol>capV+1e-6 || u.wt>capW+1e-6){
+      warnings.push('⚠ '+pre+' PO「'+u.po+'」体积 '+round(u.vol)+'CBM / 重量 '+round(u.wt)+'kg 超过单个最大柜（'+big.name+' '+capV+'CBM / '+capW+'kg）。已单独占一柜，建议开启「允许拆分」或人工处理。');
+      bins.push({usedVol:u.vol,usedWt:u.wt,items:u.items.map(function(it){return {it:it,boxes:it.box};}),over:true}); return;
     }
     var placed=false;
     for(var i=0;i<bins.length;i++){ var b=bins[i]; if(b.over) continue;
-      if(b.usedVol+it.vol<=capV+1e-6 && b.usedWt+it.wt<=capW+1e-6){
-        b.usedVol+=it.vol; b.usedWt+=it.wt; b.items.push({it:it,boxes:it.box}); placed=true; break; } }
-    if(!placed) bins.push({usedVol:it.vol,usedWt:it.wt,items:[{it:it,boxes:it.box}]});
+      if(b.usedVol+u.vol<=capV+1e-6 && b.usedWt+u.wt<=capW+1e-6){
+        b.usedVol+=u.vol; b.usedWt+=u.wt; u.items.forEach(function(it){ b.items.push({it:it,boxes:it.box}); }); placed=true; break; } }
+    if(!placed) bins.push({usedVol:u.vol,usedWt:u.wt,items:u.items.map(function(it){return {it:it,boxes:it.box};})});
   });
   return bins;
 }
@@ -553,16 +568,16 @@ function copyResult(){
 /* ================= 示例数据 ================= */
 function loadDemo(){
   document.getElementById('raw').value=
-'客户\t船期\tPO号码\t中文品名\t个数\t箱数\t外箱-毛重kg\t总体积\n'+
-'客户A\t2026-08-31\tA-001\t砧板\t8560\t535\t16\t20.12\n'+
-'客户A\t2026-08-31\tA-002\t刮刀\t10752\t112\t12.96\t6.25\n'+
-'客户A\t2026-08-31\tA-003\t勺\t11328\t354\t2.94\t8.76\n'+
-'客户A\t2026-08-31\tA-004\t碗\t1176\t294\t0.95\t1.66\n'+
-'客户A\t2026-08-24\tA-010\t置物架\t1008\t168\t8.3\t24.25\n'+
-'客户A\t2026-08-24\tA-011\t砧板大\t1560\t260\t7.1\t3.30\n'+
-'客户B\t2026-08-15\tW-201\t不锈钢锅\t2000\t400\t18\t28.0\n'+
-'客户B\t2026-08-15\tW-202\t玻璃杯\t3000\t300\t9\t15.5\n'+
-'客户B\t2026-08-15\tW-203\t餐具套装\t1500\t150\t22\t9.4';
+'客户\t船期\tPO号码\t中文品名\t个数\t箱数\t总毛重kg\t总体积\n'+
+'客户A\t2026-08-31\tA-001\t柚木砧板\t8560\t535\t8560\t20.12\n'+
+'客户A\t2026-08-31\tA-002\t硅胶刮刀\t10752\t112\t1452\t6.25\n'+
+'客户A\t2026-08-31\tA-003\t木勺\t11328\t354\t1041\t8.76\n'+
+'客户A\t2026-08-31\tA-004\t相思木碗\t1176\t294\t279\t1.66\n'+
+'客户A\t2026-08-24\tA-010\t竹置物架\t1008\t168\t1394\t24.25\n'+
+'客户A\t2026-08-24\tA-011\t竹砧板大\t1560\t260\t1846\t3.30\n'+
+'客户B\t2026-08-15\tW-201\t不锈钢锅\t2000\t400\t7200\t28.0\n'+
+'客户B\t2026-08-15\tW-202\t玻璃杯\t3000\t300\t2700\t15.5\n'+
+'客户B\t2026-08-15\tW-203\t餐具套装\t1500\t150\t3300\t9.4';
   parsePaste();
 }
 </script>
