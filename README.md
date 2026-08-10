@@ -8,7 +8,7 @@
 
 ## ✨ 在线体验
 
-部署到 GitHub Pages 后即可访问：**https://xuduidui123.github.io/container-loading-planner/**
+部署到 GitHub Pages 后即可访问：**[https://xuduidui123.github.io/container-loading-planner/](https://xuduidui123.github.io/Container-Load-Planner/)**
 
 ## 🎯 这是什么
 
